@@ -7,23 +7,18 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
+      margin: 0; padding: 20px;
       background: linear-gradient(135deg, #74ebd5, #ACB6E5);
     }
     .container {
-      max-width: 900px;
+      max-width: 950px;
       margin: auto;
       background: white;
       padding: 25px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
+    h2 { text-align: center; margin-bottom: 20px; color: #333; }
     form {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -44,40 +39,51 @@
       transition: background 0.2s ease;
     }
     button:hover { background: #218838; }
-    #status {
-      text-align: center;
-      margin-bottom: 15px;
-      font-weight: bold;
-    }
+    #status { text-align: center; margin-bottom: 15px; font-weight: bold; }
     #status.success { color: #28a745; }
     #status.error { color: #dc3545; }
     .filter-box {
-      margin-top: 10px;
-      margin-bottom: 15px;
-      text-align: right;
+      margin: 15px 0;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
     }
-    .filter-box input {
-      width: 250px;
+    .filter-box input, .filter-box select {
       padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
+      margin-top: 10px;
     }
-    table, th, td {
-      border: 1px solid #ddd;
-    }
-    th, td {
-      padding: 10px;
-      text-align: center;
-    }
-    th {
-      background: #007bff;
-      color: white;
-    }
+    table, th, td { border: 1px solid #ddd; }
+    th, td { padding: 10px; text-align: center; }
+    th { background: #007bff; color: white; }
     tr:nth-child(even) { background: #f9f9f9; }
     tr:hover { background: #f1f1f1; }
+    .saldo-box {
+      margin-top: 20px;
+      text-align: right;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .saldo-box span { color: #007bff; }
+    .export-buttons {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .export-buttons button {
+      background: #007bff;
+    }
+    .export-buttons button:hover {
+      background: #0056b3;
+    }
   </style>
 </head>
 <body>
@@ -101,6 +107,11 @@
     <!-- Filter -->
     <div class="filter-box">
       <input type="text" id="filterInput" placeholder="🔎 Cari nama/kategori...">
+      <select id="filterType">
+        <option value="">Semua Jenis</option>
+        <option value="Pemasukan">Pemasukan</option>
+        <option value="Pengeluaran">Pengeluaran</option>
+      </select>
     </div>
 
     <!-- Tabel Laporan -->
@@ -116,18 +127,31 @@
       </thead>
       <tbody></tbody>
     </table>
+
+    <!-- Saldo -->
+    <div class="saldo-box">
+      Total Saldo: <span id="saldo">Rp 0</span>
+    </div>
+
+    <!-- Export -->
+    <div class="export-buttons">
+      <button onclick="exportTableToCSV()">📥 Export CSV</button>
+      <button onclick="exportTableToExcel()">📊 Export Excel</button>
+    </div>
   </div>
 
   <script>
     // 🔑 Ganti sesuai milikmu
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwc2jhfrUUrCiXoOcP2Ac-CyhCLGAJNbagve8FRpbW_VmxFp6_M6GH7_rqPF7e5ig0qnQ/exec"; 
     const SHEET_ID = "AKfycbwc2jhfrUUrCiXoOcP2Ac-CyhCLGAJNbagve8FRpbW_VmxFp6_M6GH7_rqPF7e5ig0qnQ"; 
-    const SHEET_NAME = "Kas XII DKV"; // ganti sesuai nama sheet
+    const SHEET_NAME = "Kas XII DKV"; 
 
     const transactionForm = document.getElementById("transactionForm");
     const statusEl = document.getElementById("status");
     const dataTable = document.getElementById("dataTable").querySelector("tbody");
     const filterInput = document.getElementById("filterInput");
+    const filterType = document.getElementById("filterType");
+    const saldoEl = document.getElementById("saldo");
 
     // 📝 Tambah Transaksi
     transactionForm.addEventListener("submit", async (e) => {
@@ -147,7 +171,7 @@
         statusEl.innerText = "✅ Transaksi berhasil disimpan!";
         statusEl.className = "success";
         transactionForm.reset();
-        loadData(); // refresh tabel
+        loadData(); 
       } catch (err) {
         statusEl.innerText = "❌ Gagal menyimpan data.";
         statusEl.className = "error";
@@ -162,6 +186,8 @@
       const json = JSON.parse(text.substr(47).slice(0, -2));
 
       dataTable.innerHTML = "";
+      let totalSaldo = 0;
+
       json.table.rows.forEach(row => {
         const tr = document.createElement("tr");
         row.c.forEach(cell => {
@@ -170,18 +196,64 @@
           tr.appendChild(td);
         });
         dataTable.appendChild(tr);
+
+        // Hitung saldo
+        const jenis = row.c[1] ? row.c[1].v : "";
+        const jumlah = row.c[2] ? parseInt(row.c[2].v) : 0;
+        if (jenis === "Pemasukan") totalSaldo += jumlah;
+        if (jenis === "Pengeluaran") totalSaldo -= jumlah;
       });
+
+      saldoEl.innerText = "Rp " + totalSaldo.toLocaleString("id-ID");
+      applyFilter();
     }
 
     // 🔎 Filter Data
-    filterInput.addEventListener("keyup", () => {
-      const filter = filterInput.value.toLowerCase();
+    function applyFilter() {
+      const filterText = filterInput.value.toLowerCase();
+      const filterJenis = filterType.value;
       const rows = dataTable.querySelectorAll("tr");
+
       rows.forEach(row => {
-        const category = row.cells[3].innerText.toLowerCase();
-        row.style.display = category.includes(filter) ? "" : "none";
+        const kategori = row.cells[3].innerText.toLowerCase();
+        const jenis = row.cells[1].innerText;
+        const matchText = kategori.includes(filterText);
+        const matchJenis = filterJenis === "" || jenis === filterJenis;
+        row.style.display = (matchText && matchJenis) ? "" : "none";
       });
-    });
+    }
+
+    filterInput.addEventListener("keyup", applyFilter);
+    filterType.addEventListener("change", applyFilter);
+
+    // 📤 Export ke CSV
+    function exportTableToCSV() {
+      let csv = [];
+      const rows = document.querySelectorAll("table tr");
+      rows.forEach(row => {
+        const cols = row.querySelectorAll("td, th");
+        const rowData = [];
+        cols.forEach(col => rowData.push('"' + col.innerText + '"'));
+        csv.push(rowData.join(","));
+      });
+      const blob = new Blob([csv.join("\n")], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "KasSekolah.csv";
+      a.click();
+    }
+
+    // 📤 Export ke Excel
+    function exportTableToExcel() {
+      let table = document.getElementById("dataTable").outerHTML;
+      let blob = new Blob([table], { type: "application/vnd.ms-excel" });
+      let url = window.URL.createObjectURL(blob);
+      let a = document.createElement("a");
+      a.href = url;
+      a.download = "KasSekolah.xls";
+      a.click();
+    }
 
     // ⏲️ Load pertama
     loadData();

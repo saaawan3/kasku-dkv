@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Kas Sekolah</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 20px;
+      background: #f4f6f8;
+    }
+    .container {
+      max-width: 950px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 { text-align: center; margin-bottom: 20px; color: #333; }
+    .filter-box {
+      margin: 15px 0;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .filter-box input, .filter-box select {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    table, th, td { border: 1px solid #ddd; }
+    th, td { padding: 10px; text-align: center; }
+    th { background: #007bff; color: white; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tr:hover { background: #f1f1f1; }
+    .saldo-box {
+      margin-top: 20px;
+      text-align: right;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .saldo-box span { color: #007bff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📊 Laporan Uang Kas Sekolah</h2>
+
+    <!-- Filter -->
+    <div class="filter-box">
+      <input type="text" id="filterInput" placeholder="🔎 Cari nama/kategori...">
+      <select id="filterType">
+        <option value="">Semua Jenis</option>
+        <option value="Pemasukan">Pemasukan</option>
+        <option value="Pengeluaran">Pengeluaran</option>
+      </select>
+    </div>
+
+    <!-- Tabel Laporan -->
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Jenis</th>
+          <th>Jumlah</th>
+          <th>Kategori</th>
+          <th>Catatan</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <!-- Saldo -->
+    <div class="saldo-box">
+      Total Saldo: <span id="saldo">Rp 0</span>
+    </div>
+  </div>
+
+  <script>
+    // 🔑 Ganti sesuai milikmu
+    const SHEET_ID = "AKfycbwc2jhfrUUrCiXoOcP2Ac-CyhCLGAJNbagve8FRpbW_VmxFp6_M6GH7_rqPF7e5ig0qnQ"; 
+    const SHEET_NAME = "Kas XII DKV"; 
+
+    const dataTable = document.getElementById("dataTable").querySelector("tbody");
+    const filterInput = document.getElementById("filterInput");
+    const filterType = document.getElementById("filterType");
+    const saldoEl = document.getElementById("saldo");
+
+    // 📊 Ambil Data dari Google Sheets
+    async function loadData() {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const json = JSON.parse(text.substr(47).slice(0, -2));
+
+      dataTable.innerHTML = "";
+      let totalSaldo = 0;
+
+      json.table.rows.forEach(row => {
+        const tr = document.createElement("tr");
+        row.c.forEach(cell => {
+          const td = document.createElement("td");
+          td.innerText = cell ? cell.v : "";
+          tr.appendChild(td);
+        });
+        dataTable.appendChild(tr);
+
+        // Hitung saldo
+        const jenis = row.c[1] ? row.c[1].v : "";
+        const jumlah = row.c[2] ? parseInt(row.c[2].v) : 0;
+        if (jenis === "Pemasukan") totalSaldo += jumlah;
+        if (jenis === "Pengeluaran") totalSaldo -= jumlah;
+      });
+
+      saldoEl.innerText = "Rp " + totalSaldo.toLocaleString("id-ID");
+      applyFilter();
+    }
+
+    // 🔎 Filter Data
+    function applyFilter() {
+      const filterText = filterInput.value.toLowerCase();
+      const filterJenis = filterType.value;
+      const rows = dataTable.querySelectorAll("tr");
+
+      rows.forEach(row => {
+        const kategori = row.cells[3].innerText.toLowerCase();
+        const jenis = row.cells[1].innerText;
+        const matchText = kategori.includes(filterText);
+        const matchJenis = filterJenis === "" || jenis === filterJenis;
+        row.style.display = (matchText && matchJenis) ? "" : "none";
+      });
+    }
+
+    filterInput.addEventListener("keyup", applyFilter);
+    filterType.addEventListener("change", applyFilter);
+
+    // ⏲️ Load pertama
+    loadData();
+  </script>
+</body>
+</html>

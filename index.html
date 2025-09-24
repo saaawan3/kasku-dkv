@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kas Sekolah</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    input, select, button {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    button {
+      background: #28a745;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    button:hover { background: #218838; }
+    #status {
+      text-align: center;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    #status.success { color: #28a745; }
+    #status.error { color: #dc3545; }
+    .filter-box {
+      margin-top: 10px;
+      margin-bottom: 15px;
+      text-align: right;
+    }
+    .filter-box input {
+      width: 250px;
+      padding: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background: #007bff;
+      color: white;
+    }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tr:hover { background: #f1f1f1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>💰 Uang Kas Sekolah</h2>
+    
+    <!-- Form Input -->
+    <form id="transactionForm">
+      <input type="date" id="date" required>
+      <select id="type" required>
+        <option value="Pemasukan">Pemasukan</option>
+        <option value="Pengeluaran">Pengeluaran</option>
+      </select>
+      <input type="number" id="amount" placeholder="Jumlah (Rp)" required>
+      <input type="text" id="category" placeholder="Nama/Kategori" required>
+      <input type="text" id="note" placeholder="Catatan (Opsional)">
+      <button type="submit">Tambah Transaksi</button>
+    </form>
+    <p id="status"></p>
+
+    <!-- Filter -->
+    <div class="filter-box">
+      <input type="text" id="filterInput" placeholder="🔎 Cari nama/kategori...">
+    </div>
+
+    <!-- Tabel Laporan -->
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Jenis</th>
+          <th>Jumlah</th>
+          <th>Kategori</th>
+          <th>Catatan</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    // 🔑 Ganti sesuai milikmu
+    const SCRIPT_URL = "PASTE_URL_WEBAPP_DISINI"; 
+    const SHEET_ID = "PASTE_ID_SPREADSHEET_DISINI"; 
+    const SHEET_NAME = "Sheet1"; // ganti sesuai nama sheet
+
+    const transactionForm = document.getElementById("transactionForm");
+    const statusEl = document.getElementById("status");
+    const dataTable = document.getElementById("dataTable").querySelector("tbody");
+    const filterInput = document.getElementById("filterInput");
+
+    // 📝 Tambah Transaksi
+    transactionForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = {
+        date: document.getElementById("date").value,
+        type: document.getElementById("type").value,
+        amount: parseInt(document.getElementById("amount").value),
+        category: document.getElementById("category").value,
+        note: document.getElementById("note").value
+      };
+
+      statusEl.innerText = "⏳ Menyimpan...";
+      statusEl.className = "";
+      try {
+        await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(data) });
+        statusEl.innerText = "✅ Transaksi berhasil disimpan!";
+        statusEl.className = "success";
+        transactionForm.reset();
+        loadData(); // refresh tabel
+      } catch (err) {
+        statusEl.innerText = "❌ Gagal menyimpan data.";
+        statusEl.className = "error";
+      }
+    });
+
+    // 📊 Ambil Data dari Google Sheets
+    async function loadData() {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const json = JSON.parse(text.substr(47).slice(0, -2));
+
+      dataTable.innerHTML = "";
+      json.table.rows.forEach(row => {
+        const tr = document.createElement("tr");
+        row.c.forEach(cell => {
+          const td = document.createElement("td");
+          td.innerText = cell ? cell.v : "";
+          tr.appendChild(td);
+        });
+        dataTable.appendChild(tr);
+      });
+    }
+
+    // 🔎 Filter Data
+    filterInput.addEventListener("keyup", () => {
+      const filter = filterInput.value.toLowerCase();
+      const rows = dataTable.querySelectorAll("tr");
+      rows.forEach(row => {
+        const category = row.cells[3].innerText.toLowerCase();
+        row.style.display = category.includes(filter) ? "" : "none";
+      });
+    });
+
+    // ⏲️ Load pertama
+    loadData();
+  </script>
+</body>
+</html>
